@@ -1,0 +1,154 @@
+---
+title: "Assigment - kNN DIY"
+author:
+- "name author here - Jurre Foekens"
+- "name reviewer here - Michael van der Bend"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: yes
+    toc_depth: '2'
+    df_print: paged
+  html_notebook:
+    toc: yes
+    toc_depth: 2
+---
+## Packages
+
+```{r}
+library(tidyverse)
+library(class)
+library(caret)
+```
+
+---
+
+## Loading dataset
+
+```{r}
+KNN_occupancy <- read_csv("datasets/KNN-occupancy.csv")
+```
+
+## Business Understanding
+
+By data mining the data using the methodology of the CRISP-DM model, room occupancy will be predicted.
+
+## Data Understanding
+
+```{r}
+strw(KNN_occupancy)
+head(KNN_occupancy)
+```
+The dataset has 7 variables/columns and 569 oberservations/rows.Below I will explain every column:
+
+Date: contains the date and time the value was registered.
+Temperature: contains the number of degrees, this is expressed in Celcius.
+Humidity: contains the air humidity, this is expressed in percentage.
+Light: contains the lighting intensity, expressed in lux.
+Co2: contains the number of C02 values in parts per million (PPM).
+HumidityRatio: contains the mass of water vapor in the humid air - to the mass of dry air.
+Occupancy: contains the number 0 or 1. 0 means unoccupied and 1 means occupied.
+
+
+Since this is about occupancy, I would like to see how often it is occupied and how often it is not.
+
+```{r}
+cnt <- table(KNN_occupancy$Occupancy)
+prop <- round(prop.table(cnt)*1000, digits = 0)
+
+cnt
+prop
+```
+
+Above, you can see that the value is unoccupied in 78.8% of cases, and occupied in 21.2% of cases.
+
+## Data Preparation
+
+In this step, I will clean up the data to keep only values that are of value when creating a model. In this case, the column "date" can already be removed because it is not important when creating a model to predict occupancy.
+
+```{r}
+cleanDF <- KNN_occupancy[-2]
+head(cleanDF)
+```
+
+Next, I turn the numeric variable occupancy into a string because when creating a model, you need a variable that is a factor.
+
+```{r}
+KNN_occupancy$Occupancy <- factor(KNN_occupancy$Occupancy, levels = c("0", "1"), labels = c("Yes", "No")) %>% mutate("Yes")
+head(cleanDF, 10)
+```
+
+Next, I want to check the dataset for N/A values. 
+
+```{r}
+sum(is.na(cleanDF$Temperature))
+sum(is.na(cleanDF$Humidity))
+sum(is.na(cleanDF$Liht))
+sum(is.na(cleanDF$CO2))
+sum(is.na(cleanDF$Humidityratio))
+sum(is.na(cleanDF$0ccupancy))
+```
+
+As shown above, there are no columns that contain an N/A value.
+
+In addition, I want to check for each column (except for Occupancy because it has only 2 options) to see if there is an outlier that can affect the outcome of the model.
+
+```{r}
+summary(KNN_occupancy[c("Temperature", "Humidity", "Light","CO2", "HumidityRatio")])
+```
+
+Above you can see that standardization is necessary because there are large differences in the columns "Light", "CO2" and "HumidityRatio" compared to the "Temperature" and "Humidity" columns.
+
+```{r}
+cleand2 <- KNN_occupancy[-1]
+head(cleanDF_n)
+```
+
+
+
+```{r}
+normalize <- function(x)return((x - min(x))/ (max(x) - min(x)))
+
+nCols <- dim(cleanDF_n)[6]
+cleanDF_n <- sapply(1:5,
+                    function(x) 
+  normalize(cleanDF_n[,])
+) %>% as.data.frame()
+
+summary(cleanDF_n)
+```
+
+Looking at the previous summary, it can be seen that normalization has been successful.
+
+I will now split the data to a training and test set. When creating the training and test sets, I have excluded the labels. I have separated training and tests sets for them too.
+
+```{r}
+trainDF_feat <- cleanDF_n[1;7000,]
+testDF_feat <- cleanDF_n[7000;8143,]
+
+trainDF_labels <- cleand2[1;7000, 6]
+testDF_labels <- cleand2[7000;8143, 6]
+```
+
+Now that data preparation is done, the model can be trained.
+
+## Modeling
+
+To train the knn model, I use a function from the class package. It takes the set with training features and the set with training label. The trained model is applied to the set with test features and the function gives back a set of predictions.In this case, a K of 90 was chosen because you have to use the square root of the number.
+
+```{r}
+cleanDF_test_pred <- knn(train = as.matrix(trainDF_feat), test = as.matrix(testDF_feat), cl = as.matrix(trainDF_labels), k = 90)
+head(cleanDF_test_pred)
+```
+
+## Evaluation and Deployment
+
+Above, you can see that I have a set of predicted labels. Now I will use a confusion matrix to compare these with the actual labels. Which will allow me to see how well the model performs.
+
+```{r}
+confusionMatrix(cleanDF_test_pred, testDF_labels[[1]])
+```
+
+The table above shows that this model has an accuracy of 0.8234. This is relatively low and therefore this model cannot be fully trusted.
+
+## reviewer adds suggestions for improving the model
